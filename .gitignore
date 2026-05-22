@@ -1,0 +1,22 @@
+# Target folders (Maven builds)
+**/target/
+*.jar
+*.war
+
+# IDEs and Editors
+.idea/
+*.iml
+*.iws
+.vscode/
+.settings/
+.classpath
+.project
+.factorypath
+
+# Operating System Files
+Keep
+Thumbs.db
+.DS_Store
+
+# Logs
+*.log
