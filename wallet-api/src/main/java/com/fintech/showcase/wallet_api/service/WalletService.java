@@ -14,6 +14,9 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 
 @Service
 @RequiredArgsConstructor
@@ -22,23 +25,23 @@ public class WalletService {
     private final WalletMapper mapper;
     private final TransactionRepository transactionRepository;
 
-
-    public WalletResponseDTO createWallet(WalletRequestDTO request) {
-        Wallet wallet = Wallet.builder()
-                .id(UUID.randomUUID())
-                .ownerName(request.ownerName())
-                .balance(BigDecimal.ZERO)
-                .build();
-        return mapper.toResponse(repository.save(wallet));
-    }
-
+    // value: nome do cache | key: id da carteira usado como identificador único no Redis
+    @Cacheable(value = "wallets", key = "#id")
     public WalletResponseDTO getWallet(UUID id) {
+        // Para testarmos se o cache funciona, vamos colocar um log.
+        // Se o dado vier do Redis, este log NÃO vai aparecer no terminal.
+        System.out.println("===> BUSCANDO NO BANCO DE DADOS POSTGRES: " + id);
+
         Wallet wallet = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Wallet não encontrada"));
         return mapper.toResponse(wallet);
     }
 
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "wallets", key = "#request.sourceWalletId()"),
+            @CacheEvict(value = "wallets", key = "#request.destinationWalletId()")
+    })
     public void transfer(TransferRequestDTO request) {
         if (request.sourceWalletId().equals(request.destinationWalletId())) {
             throw new IllegalArgumentException("Origem e destino não podem ser iguais");
@@ -54,11 +57,9 @@ public class WalletService {
             throw new RuntimeException("Saldo insuficiente");
         }
 
-        // Debita e Credita
         source.setBalance(source.getBalance().subtract(request.amount()));
         destination.setBalance(destination.getBalance().add(request.amount()));
 
-        // Registra histórico
         Transaction sourceTx = Transaction.builder()
                 .id(UUID.randomUUID())
                 .wallet(source)
@@ -77,8 +78,19 @@ public class WalletService {
 
         repository.save(source);
         repository.save(destination);
-
         transactionRepository.save(sourceTx);
         transactionRepository.save(destTx);
+
+        System.out.println("===> TRANSFERÊNCIA REALIZADA COM SUCESSO. CACHE EVACUADO!");
+    }
+
+    // Opcional: Limpar cache ao criar uma carteira (não obrigatório, mas boa prática)
+    public WalletResponseDTO createWallet(com.fintech.showcase.wallet_api.dto.request.WalletRequestDTO request) {
+        Wallet wallet = Wallet.builder()
+                .id(UUID.randomUUID())
+                .ownerName(request.ownerName())
+                .balance(java.math.BigDecimal.ZERO)
+                .build();
+        return mapper.toResponse(repository.save(wallet));
     }
 }
