@@ -1,0 +1,13 @@
+type Wallet {
+    id: ID!
+    ownerName: String!
+    balance: Float!
+}
+
+type Query {
+    getWallet(id: ID!): Wallet
+}
+
+type Mutation {
+    createWallet(ownerName: String!): Wallet
+}
