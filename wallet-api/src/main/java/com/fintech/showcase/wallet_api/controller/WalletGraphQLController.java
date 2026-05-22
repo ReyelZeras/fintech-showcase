@@ -27,4 +27,14 @@ public class WalletGraphQLController {
     public WalletResponseDTO createWallet(@Valid @Argument WalletRequestDTO input) {
         return walletService.createWallet(input);
     }
+
+    @QueryMapping
+    public java.util.List<WalletResponseDTO> findAllWallets() {
+        return walletService.findAllWallets();
+    }
+
+    @MutationMapping
+    public boolean deleteWallet(@Argument UUID id) {
+        return walletService.deleteWallet(id);
+    }
 }
