@@ -10,6 +10,8 @@ import org.springframework.graphql.data.method.annotation.MutationMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
 import org.springframework.stereotype.Controller;
 import org.springframework.validation.annotation.Validated;
+
+import java.math.BigDecimal;
 import java.util.UUID;
 
 @Controller
@@ -36,5 +38,10 @@ public class WalletGraphQLController {
     @MutationMapping
     public boolean deleteWallet(@Argument UUID id) {
         return walletService.deleteWallet(id);
+    }
+
+    @MutationMapping
+    public WalletResponseDTO depositWallet(@Argument UUID walletId, @Argument BigDecimal amount) {
+        return walletService.deposit(walletId, amount);
     }
 }

@@ -126,4 +126,53 @@ public class WalletService {
         repository.deleteById(id);
         return true;
     }
+
+    @Transactional
+    @CacheEvict(value = "wallets", key = "#walletId")
+    public WalletResponseDTO deposit(UUID walletId, BigDecimal amount) {
+        // 1. Validação explícita de valor de entrada
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("O valor do depósito deve ser maior que zero.");
+        }
+
+        // 2. Busca a carteira alvo no banco de dados (PostgreSQL)
+        Wallet wallet = repository.findById(walletId)
+                .orElseThrow(() -> new RuntimeException("Carteira não encontrada com o ID fornecido."));
+
+        // 3. Atualiza o saldo e a data de modificação
+        wallet.setBalance(wallet.getBalance().add(amount));
+        wallet.setUpdatedAt(LocalDateTime.now());
+        repository.save(wallet);
+
+        // 4. Registra no histórico de transações como CREDIT
+        Transaction transaction = Transaction.builder()
+                .id(UUID.randomUUID())
+                .wallet(wallet)
+                .type(Transaction.TransactionType.CREDIT)
+                .amount(amount)
+                .timestamp(LocalDateTime.now())
+                .build();
+        transactionRepository.save(transaction);
+
+        System.out.println("===> DEPÓSITO REALIZADO COM SUCESSO. CACHE DA CARTEIRA " + walletId + " EVACUADO!");
+
+        // 5. Dispara o evento assíncrono de auditoria para o Apache Kafka
+        TransactionEvent auditEvent = new TransactionEvent(
+                transaction.getId(),
+                null, // Sem carteira de origem (Depósito externo / Carga)
+                wallet.getId(),
+                amount,
+                LocalDateTime.now()
+        );
+
+        try {
+            kafkaTemplate.send("audit-events", auditEvent);
+            System.out.println("===> EVENTO DE AUDITORIA DE DEPÓSITO DISPARADO COM SUCESSO!");
+        } catch (Exception e) {
+            // Loga o erro de infraestrutura sem estornar a transação principal se preferir assincronismo resiliente
+            System.err.println("ERRO ao disparar evento de auditoria para o Kafka: " + e.getMessage());
+        }
+
+        return mapper.toResponse(wallet);
+    }
 }

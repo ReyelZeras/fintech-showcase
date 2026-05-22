@@ -1,6 +1,8 @@
 package com.fintech.showcase.wallet_api.controller;
 
+import com.fintech.showcase.wallet_api.dto.request.DepositRequestDTO;
 import com.fintech.showcase.wallet_api.dto.request.TransferRequestDTO;
+import com.fintech.showcase.wallet_api.dto.response.WalletResponseDTO;
 import com.fintech.showcase.wallet_api.service.WalletService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -18,5 +20,11 @@ public class TransactionRestController {
     public ResponseEntity<Void> transfer(@Valid @RequestBody TransferRequestDTO request) {
         walletService.transfer(request);
         return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/deposit")
+    public ResponseEntity<WalletResponseDTO> deposit(@Valid @RequestBody DepositRequestDTO request) {
+        WalletResponseDTO response = walletService.deposit(request.walletId(), request.amount());
+        return ResponseEntity.ok(response);
     }
 }
