@@ -4,10 +4,16 @@ type Wallet {
     balance: Float!
 }
 
+# Criamos um tipo de entrada específico para a criação
+input WalletInput {
+    ownerName: String!
+}
+
 type Query {
     getWallet(id: ID!): Wallet
 }
 
 type Mutation {
-    createWallet(ownerName: String!): Wallet
+    # Agora a mutation espera o argumento 'input' do tipo 'WalletInput'
+    createWallet(input: WalletInput!): Wallet
 }
