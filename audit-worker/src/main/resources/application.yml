@@ -1,14 +1,28 @@
 spring:
-  kafka:
-    bootstrap-servers: localhost:9092
-    consumer:
-      auto-offset-reset: earliest
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
   datasource:
     url: jdbc:postgresql://localhost:5433/showcase_db
     username: admin
     password: adminpassword
+
   jpa:
     hibernate:
-      ddl-auto: update # Útil para worker simples
+      ddl-auto: update
+    show-sql: true
+
+  kafka:
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      # 1. Envelopa o desserializador para capturar erros e impedir o looping infinito
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      properties:
+        # 2. Define o JsonDeserializer como o cara que realmente vai processar o JSON
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
+
+        # 3. Ignora o cabeçalho '__TypeId__' enviado pela API produtora
+        spring.json.use.type.headers: false
+
+        # 4. Força o mapeamento direto para a sua classe local dentro do projeto audit-worker
+        spring.json.value.default.type: "com.fintech.showcase.audit_worker.event.TransactionEvent"
+
+        # 5. Confia em todos os pacotes para evitar problemas adicionais de segurança na desserialização
+        spring.json.trusted.packages: "*"

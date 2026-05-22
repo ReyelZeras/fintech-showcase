@@ -26,3 +26,9 @@ spring:
     redis:
       time-to-live: 600000 # Tempo de vida do cache em milissegundos (Ex: 10 minutos)
       cache-null-values: false
+
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer

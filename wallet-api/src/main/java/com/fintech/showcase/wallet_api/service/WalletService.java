@@ -18,6 +18,8 @@ import java.util.UUID;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
+import com.fintech.showcase.wallet_api.event.TransactionEvent;
+import org.springframework.kafka.core.KafkaTemplate;
 
 @Service
 @RequiredArgsConstructor
@@ -25,6 +27,7 @@ public class WalletService {
     private final WalletRepository repository;
     private final WalletMapper mapper;
     private final TransactionRepository transactionRepository;
+    private final KafkaTemplate<String, TransactionEvent> kafkaTemplate; // Injetado automaticamente pelo Lombok
 
     // value: nome do cache | key: id da carteira usado como identificador único no Redis
     @Cacheable(value = "wallets", key = "#id")
@@ -83,6 +86,19 @@ public class WalletService {
         transactionRepository.save(destTx);
 
         System.out.println("===> TRANSFERÊNCIA REALIZADA COM SUCESSO. CACHE EVACUADO!");
+
+        // DISPARO DO EVENTO DE AUDITORIA ASSÍNCRONO
+        TransactionEvent event = new TransactionEvent(
+                sourceTx.getId(),
+                request.sourceWalletId(),
+                request.destinationWalletId(),
+                request.amount(),
+                sourceTx.getTimestamp()
+        );
+
+        // Enviamos usando o ID da carteira de origem como chave de partição para garantir ordem cronológica por conta
+        kafkaTemplate.send("audit-events", event.sourceWalletId().toString(), event);
+        System.out.println("===> EVENTO DE AUDITORIA ENVIADO PARA O KAFKA: " + sourceTx.getId());
     }
 
     // Opcional: Limpar cache ao criar uma carteira (não obrigatório, mas boa prática)
