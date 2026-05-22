@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -92,5 +93,21 @@ public class WalletService {
                 .balance(java.math.BigDecimal.ZERO)
                 .build();
         return mapper.toResponse(repository.save(wallet));
+    }
+
+    public List<WalletResponseDTO> findAllWallets() {
+        return repository.findAll().stream()
+                .map(mapper::toResponse)
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    @Transactional
+    @CacheEvict(value = "wallets", key = "#id")
+    public boolean deleteWallet(UUID id) {
+        if (!repository.existsById(id)) {
+            throw new RuntimeException("Não é possível deletar: Carteira não encontrada com o ID fornecido.");
+        }
+        repository.deleteById(id);
+        return true;
     }
 }
