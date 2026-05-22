@@ -18,4 +18,5 @@ type Mutation {
     # Agora a mutation espera o argumento 'input' do tipo 'WalletInput'
     createWallet(input: WalletInput!): Wallet
     deleteWallet(id: ID!): Boolean! # Nova mutation de deleção
+    depositWallet(walletId: ID!, amount: Float!): Wallet
 }
