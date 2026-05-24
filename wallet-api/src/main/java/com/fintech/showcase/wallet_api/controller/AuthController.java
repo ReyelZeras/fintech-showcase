@@ -54,6 +54,7 @@ public class AuthController {
         // Cria a Wallet automaticamente no momento do cadastro
         Wallet newWallet = Wallet.builder()
                 .id(UUID.randomUUID())
+                .ownerName(data.fullName())
                 .balance(BigDecimal.ZERO)
                 .build();
 

@@ -1,9 +1,9 @@
 import { ApplicationConfig, provideZoneChangeDetection } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { routes } from './app.routes';
-import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';import { authInterceptor } from './core/interceptors/auth.interceptor';
 import { provideStore } from '@ngrx/store';
-import { walletReducer } from './state/wallet.reducer';
+import { walletReducer } from './core/state/wallet.reducer';
 import { ApolloClientOptions, InMemoryCache } from '@apollo/client/core';
 import { Apollo, APOLLO_OPTIONS } from 'apollo-angular';
 import { HttpLink } from 'apollo-angular/http';
@@ -21,6 +21,8 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes),
     provideHttpClient(),
     provideStore({ wallet: walletReducer }),
+    provideHttpClient(withInterceptors([authInterceptor])),
+    
     Apollo,
     {
       provide: APOLLO_OPTIONS,
