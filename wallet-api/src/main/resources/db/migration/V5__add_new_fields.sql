@@ -1,0 +1,4 @@
+-- V5__add_new_fields.sql
+ALTER TABLE users ADD COLUMN active BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE wallet ADD COLUMN active BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE transaction_history ADD COLUMN counterpart_name VARCHAR(255);

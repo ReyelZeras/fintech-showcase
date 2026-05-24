@@ -58,4 +58,16 @@ export class WalletService {
       tap(() => this.fetchDashboardData(payload.walletId))
     );
   }
+
+  verifyPixKey(pixKey: string): Observable<{fullName: string}> {
+    return this.http.get<{fullName: string}>(`http://localhost:8080/api/users/pix/${pixKey}`);
+  }
+
+  deactivateAccount(): Observable<any> {
+    return this.http.delete('http://localhost:8080/api/users/me');
+  }
+
+  updateProfile(payload: {fullName: string, pixKey: string}): Observable<any> {
+    return this.http.put('http://localhost:8080/api/users/me', payload);
+  }
 }

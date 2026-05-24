@@ -35,6 +35,10 @@ public class User implements UserDetails {
     @Column(unique = true)
     private String pixKey;
 
+    @Builder.Default
+    @Column(nullable = false)
+    private boolean active = true;
+
     // Relacionamento com a Wallet (1 para 1)
     @OneToOne(cascade = CascadeType.ALL)
     @JoinColumn(name = "wallet_id", referencedColumnName = "id")
@@ -60,5 +64,7 @@ public class User implements UserDetails {
     public boolean isCredentialsNonExpired() { return true; }
 
     @Override
-    public boolean isEnabled() { return true; }
+    public boolean isEnabled() {
+        return this.active;
+    }
 }

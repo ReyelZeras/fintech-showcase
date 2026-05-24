@@ -31,7 +31,10 @@ public class Transaction {
     @Column(nullable = false)
     private LocalDateTime timestamp;
 
+    @Column(name = "counterpart_name")
+    private String counterpartName;
+
     public enum TransactionType {
-        CREDIT, DEBIT
+        CREDIT, DEBIT, FAILED
     }
 }
