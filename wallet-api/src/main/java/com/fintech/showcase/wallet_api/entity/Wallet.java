@@ -20,6 +20,9 @@ public class Wallet {
     private BigDecimal balance;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    @Builder.Default
+    @Column(nullable = false)
+    private boolean active = true;
 
     @PrePersist
     protected void onCreate() {

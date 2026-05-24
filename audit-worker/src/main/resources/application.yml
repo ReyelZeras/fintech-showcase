@@ -26,3 +26,12 @@ spring:
 
         # 5. Confia em todos os pacotes para evitar problemas adicionais de segurança na desserialização
         spring.json.trusted.packages: "*"
+
+  mail:
+    host: smtp-mail.outlook.com
+    port: 587
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true

@@ -17,7 +17,9 @@ export class AuthService {
   private state = signal<UserState>({
     fullName: null,
     walletId: null,
-    isAuthenticated: false
+    isAuthenticated: false,
+    email: null,
+    pixKey: null
   });
 
   public currentUser = computed(() => this.state());
@@ -27,23 +29,32 @@ export class AuthService {
     this.checkInitialState();
   }
 
-  private checkInitialState() {
+private checkInitialState() {
     const token = localStorage.getItem('token');
     const fullName = localStorage.getItem('fullName');
+    const email = localStorage.getItem('email');
+    const pixKey = localStorage.getItem('pixKey');
     const walletId = localStorage.getItem('walletId');
 
     if (token && fullName && walletId) {
-      this.state.set({ fullName, walletId, isAuthenticated: true });
+      this.state.set({ fullName, email, pixKey, walletId, isAuthenticated: true });
     }
   }
-
-  login(payload: LoginPayload) {
+login(payload: LoginPayload) {
     return this.http.post<TokenResponse>(`${this.apiUrl}/login`, payload).pipe(
       tap(response => {
         localStorage.setItem('token', response.token);
         localStorage.setItem('fullName', response.fullName);
+        localStorage.setItem('email', response.email);
+        localStorage.setItem('pixKey', response.pixKey);
         localStorage.setItem('walletId', response.walletId);
-        this.state.set({ fullName: response.fullName, walletId: response.walletId, isAuthenticated: true });
+        this.state.set({ 
+          fullName: response.fullName, 
+          email: response.email, 
+          pixKey: response.pixKey, 
+          walletId: response.walletId, 
+          isAuthenticated: true 
+        });
       })
     );
   }
@@ -54,7 +65,11 @@ export class AuthService {
 
   logout() {
     localStorage.clear();
-    this.state.set({ fullName: null, walletId: null, isAuthenticated: false });
+    this.state.set({
+      fullName: null, walletId: null, isAuthenticated: false,
+      email: null,
+      pixKey: null
+    });
     this.router.navigate(['/auth']);
   }
 

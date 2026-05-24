@@ -30,7 +30,8 @@ public class WalletService {
     private final WalletMapper mapper;
     private final TransactionRepository transactionRepository;
     private final UserRepository userRepository;
-    private final KafkaTemplate<String, TransactionEvent> kafkaTemplate; // Injetado automaticamente pelo Lombok
+    private final KafkaTemplate<String, TransactionEvent> kafkaTemplate;
+    private final TransactionLoggerService transactionLoggerService;
 
     // value: nome do cache | key: id da carteira usado como identificador único no Redis
     @Cacheable(value = "wallets", key = "#id")
@@ -47,54 +48,57 @@ public class WalletService {
     @Transactional
     @CacheEvict(value = "wallets", allEntries = true)
     public void transfer(TransferRequestDTO request) {
-
         Wallet source = repository.findById(request.sourceWalletId())
                 .orElseThrow(() -> new RuntimeException("Carteira de origem não encontrada"));
 
-        // Busca o usuário pela chave PIX e pega a carteira dele
-        User destUser = userRepository.findByPixKey(request.pixKey())
-                .orElseThrow(() -> new RuntimeException("Chave Pix de destino não encontrada no sistema."));
+        // CORREÇÃO 3: Se a chave não existir, logamos a falha IMEDIATAMENTE e abortamos
+        User destUser = userRepository.findByPixKey(request.pixKey()).orElse(null);
+        if (destUser == null) {
+            transactionLoggerService.logFailedTransaction(source, request.amount(), "Chave Inexistente (" + request.pixKey() + ")");
+            throw new RuntimeException("Chave Pix de destino não encontrada.");
+        }
+
         Wallet destination = destUser.getWallet();
 
-        if (source.getId().equals(destination.getId())) {
-            throw new IllegalArgumentException("Origem e destino não podem ser iguais");
+        try {
+            if (source.getId().equals(destination.getId())) {
+                throw new IllegalArgumentException("Origem e destino não podem ser iguais");
+            }
+            if (source.getBalance().compareTo(request.amount()) < 0) {
+                throw new RuntimeException("Saldo insuficiente");
+            }
+
+            source.setBalance(source.getBalance().subtract(request.amount()));
+            destination.setBalance(destination.getBalance().add(request.amount()));
+
+            Transaction sourceTx = Transaction.builder()
+                    .id(UUID.randomUUID())
+                    .wallet(source)
+                    .type(Transaction.TransactionType.DEBIT)
+                    .amount(request.amount())
+                    .timestamp(LocalDateTime.now())
+                    .counterpartName(destUser.getFullName())
+                    .build();
+
+            Transaction destTx = Transaction.builder()
+                    .id(UUID.randomUUID())
+                    .wallet(destination)
+                    .type(Transaction.TransactionType.CREDIT)
+                    .amount(request.amount())
+                    .timestamp(LocalDateTime.now())
+                    .counterpartName(source.getOwnerName())
+                    .build();
+
+            transactionRepository.save(sourceTx);
+            transactionRepository.save(destTx);
+
+            TransactionEvent event = new TransactionEvent(sourceTx.getId(), source.getId(), destination.getId(), request.amount(), sourceTx.getTimestamp());
+            kafkaTemplate.send("audit-events", source.getId().toString(), event);
+
+        } catch (Exception e) {
+            transactionLoggerService.logFailedTransaction(source, request.amount(), destUser.getFullName());
+            throw e;
         }
-
-        if (source.getBalance().compareTo(request.amount()) < 0) {
-            throw new RuntimeException("Saldo insuficiente");
-        }
-
-        source.setBalance(source.getBalance().subtract(request.amount()));
-        destination.setBalance(destination.getBalance().add(request.amount()));
-
-        Transaction sourceTx = Transaction.builder()
-                .id(UUID.randomUUID())
-                .wallet(source)
-                .type(Transaction.TransactionType.DEBIT)
-                .amount(request.amount())
-                .timestamp(LocalDateTime.now())
-                .build();
-
-        Transaction destTx = Transaction.builder()
-                .id(UUID.randomUUID())
-                .wallet(destination)
-                .type(Transaction.TransactionType.CREDIT)
-                .amount(request.amount())
-                .timestamp(LocalDateTime.now())
-                .build();
-
-        transactionRepository.save(sourceTx);
-        transactionRepository.save(destTx);
-
-        // Dispara auditoria Kafka
-        TransactionEvent event = new TransactionEvent(
-                sourceTx.getId(),
-                source.getId(),
-                destination.getId(),
-                request.amount(),
-                sourceTx.getTimestamp()
-        );
-        kafkaTemplate.send("audit-events", source.getId().toString(), event);
     }
 
     // Opcional: Limpar cache ao criar uma carteira (não obrigatório, mas boa prática)

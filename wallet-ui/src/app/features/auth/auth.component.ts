@@ -1,8 +1,9 @@
-import { Component, inject, signal, computed } from '@angular/core';
+import { Component, inject, signal, computed, effect } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../../core/services/auth.service';
+import { toSignal } from '@angular/core/rxjs-interop'; // IMPORTANTE
 
 @Component({
   selector: 'app-auth',
@@ -126,12 +127,15 @@ export class AuthComponent {
   private authService = inject(AuthService);
   private router = inject(Router);
 
+  
+
   isLoginMode = signal(true);
   isLoading = signal(false);
   errorMessage = signal<string | null>(null);
   successMessage = signal<string | null>(null); // Novo signal para banner de sucesso
   showPassword = signal(false);
   showConfirmPassword = signal(false);
+  passwordStrength = signal<string>(''); // Mudamos para signal simples
 
   private pixRegex = /^(\d{11}|\d{14}|[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}|\+[1-9]\d{1,14}|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$/;
 
@@ -148,19 +152,30 @@ export class AuthComponent {
     confirmPassword: ['', [Validators.required]]
   }, { validators: this.passwordMatchValidator });
 
-  passwordStrength = computed(() => {
-    const pass = this.registerForm.get('password')?.value || '';
-    if (!pass) return '';
+  constructor() {
+    // Escuta as mudanças da senha e atualiza o Signal manualmente
+    this.registerForm.get('password')?.valueChanges.subscribe(pass => {
+      this.calculateStrength(pass || '');
+    });
+  }
+
+  passwordChanges = toSignal(this.registerForm.controls['password'].valueChanges, { initialValue: '' });
+  
+  calculateStrength(pass: string) {
+    if (!pass) {
+      this.passwordStrength.set('');
+      return;
+    }
     let score = 0;
     if (pass.length >= 8) score++;
     if (/[A-Z]/.test(pass)) score++;
     if (/[0-9]/.test(pass)) score++;
     if (/[^A-Za-z0-9]/.test(pass)) score++;
 
-    if (score <= 1) return 'Fraca';
-    if (score === 2 || score === 3) return 'Média';
-    return 'Forte';
-  });
+    if (score <= 1) this.passwordStrength.set('Fraca');
+    else if (score === 2 || score === 3) this.passwordStrength.set('Média');
+    else this.passwordStrength.set('Forte');
+  }
 
   passwordMatchValidator(control: AbstractControl): ValidationErrors | null {
     const password = control.get('password')?.value;
