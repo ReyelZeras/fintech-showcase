@@ -1,22 +1,28 @@
+type Transaction {
+    id: ID!
+    type: String!
+    amount: Float!
+    timestamp: String!
+}
+
 type Wallet {
     id: ID!
     ownerName: String!
     balance: Float!
+    transactions: [Transaction]!
 }
 
-# Criamos um tipo de entrada específico para a criação
 input WalletInput {
     ownerName: String!
 }
 
 type Query {
     getWallet(id: ID!): Wallet
-    findAllWallets: [Wallet]! # Nova query de listagem
+    findAllWallets: [Wallet]!
 }
 
 type Mutation {
-    # Agora a mutation espera o argumento 'input' do tipo 'WalletInput'
-    createWallet(input: WalletInput!): Wallet
-    deleteWallet(id: ID!): Boolean! # Nova mutation de deleção
+    createWallet(input: WalletInput!): Wallet!
+    deleteWallet(id: ID!): Boolean!
     depositWallet(walletId: ID!, amount: Float!): Wallet
 }

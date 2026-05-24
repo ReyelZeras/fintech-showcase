@@ -10,6 +10,10 @@ import org.springframework.graphql.data.method.annotation.MutationMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
 import org.springframework.stereotype.Controller;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.graphql.data.method.annotation.SchemaMapping;
+import com.fintech.showcase.wallet_api.entity.Transaction;
+import com.fintech.showcase.wallet_api.repository.TransactionRepository;
+import java.util.List;
 
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -19,6 +23,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class WalletGraphQLController {
     private final WalletService walletService;
+    private final TransactionRepository transactionRepository;
 
     @QueryMapping
     public WalletResponseDTO getWallet(@Argument UUID id) {
@@ -28,6 +33,11 @@ public class WalletGraphQLController {
     @MutationMapping
     public WalletResponseDTO createWallet(@Valid @Argument WalletRequestDTO input) {
         return walletService.createWallet(input);
+    }
+
+    @SchemaMapping(typeName = "Wallet", field = "transactions")
+    public List<Transaction> getTransactions(WalletResponseDTO wallet) {
+        return transactionRepository.findByWalletIdOrderByTimestampDesc(wallet.id());
     }
 
     @QueryMapping

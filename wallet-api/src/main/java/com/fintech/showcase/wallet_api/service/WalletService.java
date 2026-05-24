@@ -20,6 +20,8 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
 import com.fintech.showcase.wallet_api.event.TransactionEvent;
 import org.springframework.kafka.core.KafkaTemplate;
+import com.fintech.showcase.wallet_api.entity.User;
+import com.fintech.showcase.wallet_api.repository.UserRepository;
 
 @Service
 @RequiredArgsConstructor
@@ -27,6 +29,7 @@ public class WalletService {
     private final WalletRepository repository;
     private final WalletMapper mapper;
     private final TransactionRepository transactionRepository;
+    private final UserRepository userRepository;
     private final KafkaTemplate<String, TransactionEvent> kafkaTemplate; // Injetado automaticamente pelo Lombok
 
     // value: nome do cache | key: id da carteira usado como identificador único no Redis
@@ -42,20 +45,20 @@ public class WalletService {
     }
 
     @Transactional
-    @Caching(evict = {
-            @CacheEvict(value = "wallets", key = "#request.sourceWalletId()"),
-            @CacheEvict(value = "wallets", key = "#request.destinationWalletId()")
-    })
+    @CacheEvict(value = "wallets", allEntries = true)
     public void transfer(TransferRequestDTO request) {
-        if (request.sourceWalletId().equals(request.destinationWalletId())) {
-            throw new IllegalArgumentException("Origem e destino não podem ser iguais");
-        }
 
         Wallet source = repository.findById(request.sourceWalletId())
                 .orElseThrow(() -> new RuntimeException("Carteira de origem não encontrada"));
 
-        Wallet destination = repository.findById(request.destinationWalletId())
-                .orElseThrow(() -> new RuntimeException("Carteira de destino não encontrada"));
+        // Busca o usuário pela chave PIX e pega a carteira dele
+        User destUser = userRepository.findByPixKey(request.pixKey())
+                .orElseThrow(() -> new RuntimeException("Chave Pix de destino não encontrada no sistema."));
+        Wallet destination = destUser.getWallet();
+
+        if (source.getId().equals(destination.getId())) {
+            throw new IllegalArgumentException("Origem e destino não podem ser iguais");
+        }
 
         if (source.getBalance().compareTo(request.amount()) < 0) {
             throw new RuntimeException("Saldo insuficiente");
@@ -80,25 +83,18 @@ public class WalletService {
                 .timestamp(LocalDateTime.now())
                 .build();
 
-        repository.save(source);
-        repository.save(destination);
         transactionRepository.save(sourceTx);
         transactionRepository.save(destTx);
 
-        System.out.println("===> TRANSFERÊNCIA REALIZADA COM SUCESSO. CACHE EVACUADO!");
-
-        // DISPARO DO EVENTO DE AUDITORIA ASSÍNCRONO
+        // Dispara auditoria Kafka
         TransactionEvent event = new TransactionEvent(
                 sourceTx.getId(),
-                request.sourceWalletId(),
-                request.destinationWalletId(),
+                source.getId(),
+                destination.getId(),
                 request.amount(),
                 sourceTx.getTimestamp()
         );
-
-        // Enviamos usando o ID da carteira de origem como chave de partição para garantir ordem cronológica por conta
-        kafkaTemplate.send("audit-events", event.sourceWalletId().toString(), event);
-        System.out.println("===> EVENTO DE AUDITORIA ENVIADO PARA O KAFKA: " + sourceTx.getId());
+        kafkaTemplate.send("audit-events", source.getId().toString(), event);
     }
 
     // Opcional: Limpar cache ao criar uma carteira (não obrigatório, mas boa prática)
